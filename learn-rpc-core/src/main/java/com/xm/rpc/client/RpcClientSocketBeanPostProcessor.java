@@ -1,13 +1,10 @@
 package com.xm.rpc.client;
 
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.Socket;
 import java.util.UUID;
 
 import org.springframework.beans.BeansException;
@@ -17,8 +14,7 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import com.xm.rpc.RpcRequest;
 import com.xm.rpc.RpcResponse;
 import com.xm.rpc.registry.ZKServiceDiscovery;
-import com.xm.utils.JacksonSerializer;
-
+import com.xm.rpc.server.nio.NettyClientProxy;
 public class RpcClientSocketBeanPostProcessor implements BeanPostProcessor {
 	@Autowired
 	private ZKServiceDiscovery zkServiceDiscovery; 
@@ -38,7 +34,6 @@ public class RpcClientSocketBeanPostProcessor implements BeanPostProcessor {
                     Object obj = Proxy.newProxyInstance(target.getClassLoader(),
                             new Class[]{target},
                             new InvocationHandler() {
-								@SuppressWarnings("resource")
 								public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                                  // request
 									String className = method.getDeclaringClass().getSimpleName();
@@ -48,45 +43,14 @@ public class RpcClientSocketBeanPostProcessor implements BeanPostProcessor {
             	                    request.setMethodName(method.getName());
             	                    request.setParameterTypes(method.getParameterTypes());
             	                    request.setParameters(args);
-            	                    
-            	                    RpcResponse rpcResponse;
-            	                    Socket socket = null;
-            	                    InputStream in = null;
-            	                    OutputStream out = null;
-									try {
-										String serverAddress = getZkServiceDiscovery().discovery(className);
-										System.out.println("serverAddress+++++++++++++++++++"+serverAddress);
-										socket = new Socket("localhost",9090);
-										out = socket.getOutputStream();
-										out.write(JacksonSerializer.serialize(request));
-										out.flush();
-			    	                   //等待服务端返回数据
-			    	                    in = socket.getInputStream();
-										int count = 0;//in.available();  
-										while (count == 0) {  
-										    count = in.available();  
-										}
-										byte[] buffer = new byte[count];
-										in.read(buffer);
-										if(buffer.length > 0){
-											rpcResponse = (RpcResponse)JacksonSerializer.deserialize(buffer, RpcResponse.class);
-											return rpcResponse.getResult();
-										}
-										return null;
-									} catch (Exception e) {
-										e.printStackTrace();
-									}finally {
-										if (in!=null) {
-											in.close();
-										}
-										if (out!=null) {
-											out.close();
-										}
-										if (socket!=null) { 
-											socket.close();
-										}
-									}
-            	                    return null;
+            	                    //BIO方式
+            	                    String serverAddress = getZkServiceDiscovery().discovery(request.getClassName());
+//            	                    RpcResponse rpcResponse = BIOClient.send(request,serverAddress);
+            	                    NettyClientProxy nettyProxy = new NettyClientProxy(request,serverAddress);
+            	                    System.out.println("+++++++++11111++++++++++"+request.getRequestId());
+            	                    RpcResponse rpcResponse = nettyProxy.send();
+            	                    System.out.println("+++++++++22222++++++++++"+request.getRequestId());
+            	                    return rpcResponse.getResult();
                                 }
                             });
                     //利用反射为属性赋值

@@ -12,7 +12,6 @@ public class TestController {
 	
 	@RequestMapping("/home")
 	String home() throws Exception {
-		System.out.println("+++++++++++++++++++++++++++++");
 		Object book = this.bookService.getBook(2);
 		System.out.println(book);
 		return "Hello World!";

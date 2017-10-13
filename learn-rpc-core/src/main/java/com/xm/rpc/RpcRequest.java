@@ -47,5 +47,8 @@ public class RpcRequest implements Serializable{
 	public void setParameters(Object[] parameters) {
 		this.parameters = parameters;
 	}
-	
+	@Override
+	public String toString() {
+		return "RpcRequest [requestId=" + requestId + "]";
+	}
 }
